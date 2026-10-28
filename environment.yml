@@ -1,0 +1,6 @@
+name: f1-telemetry
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - pyinstaller  # build only; the app itself uses the standard library

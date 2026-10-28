@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>F1 Telemetry Hub</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23e10600'/%3E%3Cpath d='M7 21l6-10h12l-2 3h-8l-1 2h7l-2 3h-7l-2 2z' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/live"><span class="brand-mark" aria-hidden="true"></span><span>F1 Telemetry Hub</span></a>
+    <nav class="nav" id="nav">
+      <a href="#/live" data-route="live">Live</a>
+      <a href="#/sessions" data-route="sessions">Sessions</a>
+      <a href="#/career" data-route="career">Career</a>
+      <a href="#/analysis" data-route="analysis">Telemetry</a>
+      <a href="#/workstation" data-route="workstation">Workstation</a>
+      <a href="#/coach" data-route="coach">Coach</a>
+      <a href="#/tracks" data-route="tracks">Tracks &amp; PBs</a>
+      <a href="#/setups" data-route="setups">Setups</a>
+      <a href="#/stats" data-route="stats">Stats</a>
+      <a href="#/settings" data-route="settings">Settings</a>
+      <a href="#/guide" data-route="guide">Guide</a>
+    </nav>
+    <a class="conn" id="conn" href="#/settings" title="Telemetry connection"><span class="dot"></span><span class="txt">Starting…</span></a>
+  </header>
+  <main id="view"></main>
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

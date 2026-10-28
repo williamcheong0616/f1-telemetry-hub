@@ -1,0 +1,25 @@
+# build output (the exe goes to GitHub Releases, not the repository)
+build/
+dist/
+dist_*/
+*.spec
+
+# your history, settings and recordings
+data/
+*.db
+*.db-wal
+*.db-shm
+*.f1rec
+*.f1lap
+
+# Python
+__pycache__/
+*.py[cod]
+
+# editors and OS
+.vscode/
+.idea/
+.claude/
+Thumbs.db
+desktop.ini
+.DS_Store
