@@ -50,6 +50,7 @@ class StatusWindow:
             root.createcommand("tk::mac::Quit", self.quit)  # Cmd+Q, the Dock's Quit, logging out
             root.createcommand("tk::mac::ReopenApplication", self.show)  # a click on the Dock icon
             root.createcommand("tkAboutDialog", self.about)
+            root.createcommand("tk::mac::ShowHelp", lambda: webbrowser.open(self.url + "#/guide"))  # Help menu
             root.bind_all("<Command-w>", lambda e: self.quit())
         for sig in (signal.SIGINT, signal.SIGTERM):  # Ctrl+C in a terminal, or being told to stop
             signal.signal(sig, self._on_signal)
@@ -87,6 +88,7 @@ class StatusWindow:
         r += 1
         self.lan = ttk.Label(f, text="", foreground=MUTED, justify="left")
         self.lan.grid(row=r, column=1, columnspan=2, sticky="w", padx=(12, 0))
+        self.lan.grid_remove()  # shown with LAN access on: an empty line would leave a gap
         r += 1
 
         r = self._rule(f, r)
@@ -168,8 +170,9 @@ class StatusWindow:
         if self.app.settings.get("lan_access") and self.ips:
             self.lan.configure(text="Other devices: " + "\n".join(f"http://{ip}:{self.app.http_port}/"
                                                                    for ip in self.ips[:3]))
+            self.lan.grid()
         else:
-            self.lan.configure(text="")
+            self.lan.grid_remove()
 
     def _tick(self):
         try:
