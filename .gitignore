@@ -3,6 +3,7 @@ build/
 dist/
 dist_*/
 *.spec
+!packaging/*.spec
 
 # your history, settings and recordings
 data/

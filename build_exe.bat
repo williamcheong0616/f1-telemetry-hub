@@ -24,9 +24,11 @@ rem conda keeps sqlite3.dll and friends in Library\bin; put it on PATH so PyInst
 for %%I in ("%PY%") do set "ENVDIR=%%~dpI"
 set "PATH=%ENVDIR%Library\bin;%ENVDIR%;%PATH%"
 
+rem Tk is left out: the app's window is for the Mac app (window.py); the exe has its console
 "%PY%" -m PyInstaller --noconfirm --clean --onefile --console ^
   --name F1TelemetryHub ^
   --icon assets\app.ico ^
+  --exclude-module tkinter ^
   --add-data "f1telemetry\web;web" ^
   --add-data "f1telemetry\circuits.json;." ^
   --add-data "GUIDE.md;." ^

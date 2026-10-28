@@ -1,0 +1,2 @@
+# Shell scripts run on Macs: keep them LF whatever the checkout's line-ending setting
+*.sh text eol=lf

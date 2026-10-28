@@ -1,0 +1,115 @@
+name: Build
+
+# Every push builds the Windows exe and the Mac app and tests both with tools/smoke_test.py. A version tag
+# (v1.2.3, matching f1telemetry/__init__.py) also puts them on a draft release, to check and publish by hand.
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYINSTALLER: "6.22.3"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Build the exe
+        shell: cmd
+        run: |
+          python -m pip install pyinstaller==%PYINSTALLER%
+          set "F1TH_PYTHON=%pythonLocation%\python.exe"
+          call build_exe.bat
+      - name: Test the exe
+        run: python tools/smoke_test.py dist/F1TelemetryHub.exe
+      - uses: actions/upload-artifact@v7
+        with:
+          name: build-windows
+          path: dist/F1TelemetryHub.exe
+          if-no-files-found: error
+
+  mac:
+    runs-on: macos-15
+    env:
+      PYTHON_ORG: "3.13.16"  # python.org's build runs on Apple silicon and Intel, so the app can too
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Python from python.org
+        run: |
+          curl -fsSLo "$RUNNER_TEMP/python.pkg" "https://www.python.org/ftp/python/$PYTHON_ORG/python-$PYTHON_ORG-macos11.pkg"
+          sudo installer -pkg "$RUNNER_TEMP/python.pkg" -target /
+          /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m venv "$RUNNER_TEMP/venv"
+          echo "PY=$RUNNER_TEMP/venv/bin/python" >> "$GITHUB_ENV"
+      - name: Build the app
+        run: |
+          "$PY" -m pip install "pyinstaller==$PYINSTALLER"
+          F1TH_PYTHON="$PY" sh build_mac.sh
+      - name: Test the app from the command line
+        run: '"$PY" tools/smoke_test.py "dist/F1 Telemetry Hub.app/Contents/MacOS/F1TelemetryHub" --no-window'
+      - name: Check the Intel half starts (under Rosetta)
+        run: |
+          if arch -x86_64 /usr/bin/true 2>/dev/null; then
+            arch -x86_64 "dist/F1 Telemetry Hub.app/Contents/MacOS/F1TelemetryHub" --help
+          else
+            echo "No Rosetta on this runner: skipped"
+          fi
+      - name: Test the app opened as a double-click opens it
+        run: |
+          DATA="$RUNNER_TEMP/window test"
+          open "dist/F1 Telemetry Hub.app" --args --no-browser --data-dir "$DATA" --http-port 8799 --udp-port 20999
+          for i in $(seq 90); do curl -sf http://127.0.0.1:8799/api/status >/dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:8799/api/status | head -c 300; echo
+          sleep 3
+          screencapture -x "$RUNNER_TEMP/window.png" || echo "no screenshot"
+          # Quit as the Dock's Quit or Cmd+Q does; if this Mac refuses scripted Apple Events, with SIGTERM instead
+          osascript -e 'tell application id "io.github.williamcheong0616.f1telemetryhub" to quit' \
+            || { echo "Apple Events refused: asking it to stop instead"; pkill -TERM -x F1TelemetryHub; }
+          for i in $(seq 30); do pgrep -x F1TelemetryHub >/dev/null || break; sleep 1; done
+          if pgrep -x F1TelemetryHub >/dev/null; then echo "still running after Quit"; exit 1; fi
+          cat "$DATA/app.log"
+          grep -q "Shutting down" "$DATA/app.log"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: build-mac
+          path: dist/F1TelemetryHub-mac.dmg
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mac-window-screenshot
+          path: ${{ runner.temp }}/window.png
+          if-no-files-found: ignore
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: build-*
+          path: assets
+          merge-multiple: true
+      - name: Check the tag matches the app's version
+        run: |
+          v=$(python3 -c "import f1telemetry; print(f1telemetry.__version__)")
+          if [ "v$v" != "$GITHUB_REF_NAME" ]; then echo "Tag $GITHUB_REF_NAME, but the app says $v"; exit 1; fi
+      - name: Draft the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (cd assets && sha256sum F1TelemetryHub.exe F1TelemetryHub-mac.dmg > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "F1 Telemetry Hub ${GITHUB_REF_NAME#v}" \
+            --notes-file .github/release-notes.md \
+            assets/F1TelemetryHub.exe assets/F1TelemetryHub-mac.dmg assets/SHA256SUMS.txt

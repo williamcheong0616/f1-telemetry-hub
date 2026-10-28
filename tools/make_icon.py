@@ -1,4 +1,4 @@
-"""Render assets/app.ico (the same mark as the dashboard favicon) with the stdlib only."""
+"""Render assets/app.ico and assets/app.icns (the same mark as the dashboard favicon) with the stdlib only."""
 import struct
 import zlib
 from pathlib import Path
@@ -24,20 +24,22 @@ def inside_rect(x, y):
     return (x - cx) ** 2 + (y - cy) ** 2 <= RADIUS ** 2
 
 
-def render(size):
+def render(size, pad=0.0, ss=SS):
+    """A size x size PNG of the mark; pad leaves that fraction of the size empty on each side."""
+    content = size * (1 - 2 * pad)
     rows = []
     for py in range(size):
         row = bytearray([0])  # PNG filter: none
         for px in range(size):
             bg = fg = 0
-            for sy in range(SS):
-                for sx in range(SS):
-                    x = (px + (sx + 0.5) / SS) * 32 / size
-                    y = (py + (sy + 0.5) / SS) * 32 / size
+            for sy in range(ss):
+                for sx in range(ss):
+                    x = (px + (sx + 0.5) / ss - size * pad) * 32 / content
+                    y = (py + (sy + 0.5) / ss - size * pad) * 32 / content
                     if inside_rect(x, y):
                         bg += 1
                         fg += inside_poly(x, y)
-            n = SS * SS
+            n = ss * ss
             a = bg / n
             w = fg / bg if bg else 0
             row += bytes([round(c + (255 - c) * w) for c in RED]) + bytes([round(a * 255)])
@@ -49,6 +51,19 @@ def render(size):
 
     return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0))
             + chunk(b"IDAT", raw) + chunk(b"IEND", b""))
+
+
+# icns entries holding PNGs: type -> pixel size. Retina variants (ic11-ic14) reuse the same pictures.
+ICNS = {b"icp4": 16, b"icp5": 32, b"icp6": 64, b"ic07": 128, b"ic08": 256, b"ic09": 512, b"ic10": 1024,
+        b"ic11": 32, b"ic12": 64, b"ic13": 256, b"ic14": 512}
+MAC_PAD = 100 / 1024  # Mac icons leave this margin round the artwork (Apple's icon grid)
+
+
+def write_icns(path):
+    pngs = {s: render(s, MAC_PAD, SS if s <= 256 else 2) for s in sorted(set(ICNS.values()))}
+    body = b"".join(kind + struct.pack(">I", 8 + len(pngs[s])) + pngs[s] for kind, s in ICNS.items())
+    path.write_bytes(b"icns" + struct.pack(">I", 8 + len(body)) + body)
+    print(f"wrote {path} ({8 + len(body)} bytes)")
 
 
 def main():
@@ -65,6 +80,7 @@ def main():
     path.parent.mkdir(exist_ok=True)
     path.write_bytes(out)
     print(f"wrote {path} ({len(out)} bytes)")
+    write_icns(path.with_suffix(".icns"))
 
 
 if __name__ == "__main__":

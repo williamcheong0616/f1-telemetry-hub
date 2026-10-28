@@ -83,7 +83,10 @@ function renderWaiting(root, snap) {
     st.udp_error ? h('p', { class: 'badge bad', style: { whiteSpace: 'normal', textTransform: 'none' } }, st.udp_error) : null,
     h('ol', {},
       h('li', {}, 'UDP Telemetry: ', h('b', {}, 'On'), ' · UDP Broadcast Mode: ', h('b', {}, 'Off')),
-      h('li', {}, 'UDP IP Address: ', h('b', {}, '127.0.0.1'), ips.length ? h('span', { class: 'muted' }, ` (or ${ips.join(' / ')} if the game runs on a console / another PC)`) : null),
+      st.platform === 'darwin'  // the game can't run on a Mac: it sends to the Mac from a console or a PC
+        ? h('li', {}, 'UDP IP Address: ', h('b', {}, ips.join(' / ') || "this Mac's IP address"), h('span', { class: 'muted' },
+          `${ips.length ? ' (this Mac)' : ' (System Settings › Network)'}, set on the console or PC the game runs on`))
+        : h('li', {}, 'UDP IP Address: ', h('b', {}, '127.0.0.1'), ips.length ? h('span', { class: 'muted' }, ` (or ${ips.join(' / ')} if the game runs on a console / another PC)`) : null),
       h('li', {}, 'UDP Port: ', h('b', {}, String(st.udp_port ?? 20777)), ' · UDP Send Rate: ', h('b', {}, '30–60 Hz')),
       h('li', {}, 'UDP Format: ', h('b', {}, '2026'), h('span', { class: 'muted' }, ' (2026 Season Pack; 2025 or 2024 also work)'),
         ' · Your Telemetry: ', h('b', {}, 'Public'))),

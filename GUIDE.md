@@ -2,8 +2,8 @@
 
 F1 Telemetry Hub records everything **EA SPORTS F1 25** (and its **2026 Season Pack**) sends over UDP while
 you drive, and turns it into a live dashboard, a race engineer on the radio, a corner-by-corner coach, a
-setup advisor, a race strategy helper and a history of every lap you have driven. It runs on your own PC
-and works without an internet connection. Nothing is uploaded anywhere.
+setup advisor, a race strategy helper and a history of every lap you have driven. It runs on your own
+Windows PC or Mac and works without an internet connection. Nothing is uploaded anywhere.
 
 This guide covers installing it, connecting the game, every page, step-by-step recipes for the common jobs,
 what the numbers mean, and what to do when something doesn't work. The same guide is built into the app:
@@ -25,21 +25,29 @@ click **Guide** in the menu bar.
 
 ### What you need
 
-- A Windows 10 or 11 PC. The game can run on the same PC, on a console (PlayStation, Xbox) or on another PC
-  on the same network.
+- A Windows 10 or 11 PC, or a Mac (Apple silicon or Intel).
+  - On Windows, the game can run on the same PC, on a console (PlayStation, Xbox) or on another PC on the
+    same network.
+  - F1 25 doesn't run on Macs, so with a Mac the game runs on a console or a PC on the same network and sends
+    its telemetry to the Mac.
 - EA SPORTS F1 25. The 2026 Season Pack is supported, and so are the 2024 and 2025 UDP formats.
-- A browser (Edge, Chrome or Firefox). The dashboard is a web page served by the app on your PC.
+- A browser (Edge, Chrome, Firefox or Safari). The dashboard is a web page served by the app on your
+  computer.
 
 Nothing else: no Python, no installer, no account.
 
 ### Download
 
-1. Open the project's GitHub page, go to **Releases** and download `F1TelemetryHub.exe` from the latest release.
-2. Make a folder for it, for example `Documents\F1 Telemetry Hub`, and put the exe there. The app keeps its
-   history in a `data` folder next to the exe, so a folder of its own keeps things tidy. (Downloads works too,
-   but the data folder ends up in Downloads.)
+Open the project's GitHub page, go to **Releases** and download from the latest release:
 
-### First start
+- **Windows:** `F1TelemetryHub.exe`. Make a folder for it, for example `Documents\F1 Telemetry Hub`, and put
+  the exe there. The app keeps its history in a `data` folder next to the exe, so a folder of its own keeps
+  things tidy. (Downloads works too, but the data folder ends up in Downloads.)
+- **Mac:** `F1TelemetryHub-mac.dmg`. Open it and drag **F1 Telemetry Hub** onto **Applications**. The same
+  app runs on Apple silicon and Intel Macs. Its history goes in your Library folder (see
+  [Your data](#your-data)), so it doesn't matter where the app itself is.
+
+### First start on Windows
 
 1. Double-click `F1TelemetryHub.exe`.
 2. **Windows SmartScreen** may say *Windows protected your PC*, because the exe isn't signed with a paid
@@ -53,17 +61,41 @@ Nothing else: no Python, no installer, no account.
 > Keep the console window open while you drive: it *is* the app. Close it (or press Ctrl+C in it) to stop.
 > Starting the exe again while it is already running just opens the dashboard of the one that is running.
 
+### First start on a Mac
+
+1. Open **F1 Telemetry Hub** from Applications.
+2. The first time, macOS says it *could not verify* that the app is free of malware, because the app isn't
+   signed with a paid Apple developer account. Click **Done**, open **System Settings → Privacy & Security**,
+   scroll down to the message about F1 Telemetry Hub and click **Open Anyway**, then confirm. You only do
+   this once per version. (On macOS 14 Sonoma and older, right-click the app, choose **Open**, then **Open**
+   again.)
+3. The app's window opens. It shows whether telemetry is arriving, the dashboard address, the settings to
+   use in the game, with this Mac's IP address, and where your data is. Your browser opens the dashboard at
+   `http://localhost:8777`.
+4. If you've turned on the macOS firewall, it may ask whether the app can accept incoming network
+   connections: click **Allow**, or the console's data can't reach it.
+
+> Keep the app's window open while you drive: closing it, or **Cmd+Q**, quits the app. If the window is
+> behind others, click the app's icon in the Dock.
+
 ### Updating
 
-Download the new `F1TelemetryHub.exe`, close the running app, and replace the old exe with the new one.
-Your history stays in the `data` folder next to it and is upgraded automatically the first time the new
-version starts.
+- **Windows:** download the new `F1TelemetryHub.exe`, close the running app, and replace the old exe with the
+  new one. Your history stays in the `data` folder next to it.
+- **Mac:** quit the app, open the new `.dmg` and drag the app onto **Applications** again, choosing
+  **Replace**. Then open it as on the first start (**Open Anyway** again, once). Your history stays where it
+  is.
+
+Your history is upgraded automatically the first time the new version starts.
 
 ### Uninstalling
 
-Close the app and delete its folder. That removes everything: the app keeps nothing in the registry or
-anywhere else. (If the exe was in a folder Windows doesn't let it write to, such as `Program Files`, its data
-is in `%LOCALAPPDATA%\F1TelemetryHub\data` instead; delete that too.)
+- **Windows:** close the app and delete its folder. That removes everything: the app keeps nothing in the
+  registry or anywhere else. (If the exe was in a folder Windows doesn't let it write to, such as
+  `Program Files`, its data is in `%LOCALAPPDATA%\F1TelemetryHub\data` instead; delete that too.)
+- **Mac:** quit the app and drag it from Applications to the Bin. To delete your history too, open
+  **Finder → Go → Go to Folder…**, enter `~/Library/Application Support` and delete the
+  **F1 Telemetry Hub** folder.
 
 ## Connect the game
 
@@ -75,8 +107,8 @@ In the game: **Settings → Telemetry Settings**.
 |---|---|
 | UDP Telemetry | On |
 | UDP Broadcast Mode | Off |
-| UDP IP Address | `127.0.0.1` when the game runs on this PC; this PC's IP address when it runs on a console or another PC |
-| UDP Port | `20777` (the number the console window and **Settings** show) |
+| UDP IP Address | `127.0.0.1` when the game runs on this PC; this computer's IP address when the game runs on a console or another PC (always the case with a Mac) |
+| UDP Port | `20777` (the number the app's console or window and **Settings** show) |
 | UDP Send Rate | 20 to 60 Hz. 60 gives the smoothest traces; 30 is plenty |
 | UDP Format | **2026** with the 2026 Season Pack, otherwise **2025** |
 | Your Telemetry | **Public**: without it the game leaves out your own car's setup, tyre and damage data in online sessions |
@@ -87,6 +119,13 @@ In the game: **Settings → Telemetry Settings**.
 - **Console or another PC:** the console window lists this PC's IP addresses (also shown on the Live page
   while it waits, and in **Settings → Game connection**). Use the one on the same network as the console,
   usually starting `192.168.` or `10.`, and allow the app through the firewall on Private networks.
+- **Mac:** the game always runs on a console or a PC. Use the IP address the app's window shows (also on the
+  Live page and in **Settings → Game connection**). macOS doesn't ask for permission to receive it. Keep
+  **UDP Broadcast Mode** Off: a broadcast needs the Local Network permission.
+
+While telemetry is arriving, the app stops the computer from going to sleep by itself, so a laptop next to the
+console keeps recording through a long race. The screen can still turn off. Five minutes after the data stops,
+the computer can sleep again as usual.
 
 ### Is it working?
 
@@ -421,8 +460,11 @@ are imported, so a damaged or tampered file is refused.
 ### Back up or move your history
 
 1. Close the app.
-2. Copy the `data` folder next to the exe (or open it with **Settings → Data → Open data folder**).
-3. To move to another PC, put the exe and the copied `data` folder side by side there.
+2. Copy the data folder: on Windows the `data` folder next to the exe, on a Mac
+   `~/Library/Application Support/F1 Telemetry Hub`. **Settings → Data → Open data folder** opens it.
+3. To move to another Windows PC, put the exe and the copied `data` folder side by side there. To move to a
+   Mac (or from one), put the folder's contents where that computer keeps them; the files are the same on
+   both.
 
 ## What the numbers mean
 
@@ -449,6 +491,8 @@ are imported, so a damaged or tampered file is refused.
 - Same PC: the IP address must be `127.0.0.1`. Console or another PC: it must be this PC's address, and
   the app must be allowed through Windows Firewall on **Private networks**. Check that Windows treats your
   network as Private (Settings → Network & internet → your connection → Network profile type).
+- Mac: the IP address must be the Mac's, as the app's window shows it. If the macOS firewall is on, check
+  F1 Telemetry Hub is allowed under **System Settings → Network → Firewall → Options**.
 - The game sends nothing in its menus: start a session and go on track.
 - A VPN on the PC can get in the way of a console reaching it.
 
@@ -469,15 +513,35 @@ Single-file Python apps are sometimes flagged by antivirus programs because of h
 If yours removes the exe, restore it from quarantine and add an exception for the app's folder. You can also
 build the exe yourself from the source code (see the README).
 
-### The console window closes straight away
+### macOS says the app can't be opened, or is damaged
 
-Start the exe from a Command Prompt to read the message, or look for a second copy already running: the
-second start opens the first one's dashboard and closes after a few seconds. If the dashboard port is taken
-by another program, the app tries the next nine ports.
+- *Could not verify … free of malware*: open **System Settings → Privacy & Security** and click
+  **Open Anyway** next to the message about F1 Telemetry Hub (see [First start on a Mac](#first-start-on-a-mac)).
+  The button stays there for about an hour after you try to open the app.
+- *Is damaged and can't be opened*: usually the download was interrupted, so download the `.dmg` again. If it
+  keeps happening, open **Terminal** and run
+  `xattr -dr com.apple.quarantine "/Applications/F1 Telemetry Hub.app"`, then open the app again. That
+  tells macOS you trust this download; only do it with a copy you downloaded from the project's GitHub page.
+
+### The app closes straight away
+
+- **Windows:** start the exe from a Command Prompt to read the message, or look for a second copy already
+  running: the second start opens the first one's dashboard and closes after a few seconds.
+- **Mac:** the app shows what went wrong in a message before it closes, and writes the details to `app.log`
+  in its data folder.
+
+If the dashboard port is taken by another program, the app tries the next nine ports.
+
+### Forward UDP to doesn't reach the other device on a Mac
+
+macOS asks before an app sends to other devices on your network. Turn F1 Telemetry Hub on under
+**System Settings → Privacy & Security → Local Network**. Forwarding to `127.0.0.1` (an app on the same
+Mac) doesn't need it.
 
 ### The dashboard doesn't open
 
-Open `http://localhost:8777` yourself (the console window shows the exact address). If **Open the
+Open `http://localhost:8777` yourself (the console window, or the app's window on a Mac, shows the exact
+address; the Mac window's **Open dashboard** button opens it). If **Open the
 dashboard when the app starts** is off in Settings, the app doesn't open it.
 
 ### The track map looks off, or says "Approximate positions"
@@ -518,9 +582,11 @@ data comes from the game's Motion Ex packet, sent with UDP Format 2024 or newer.
 
 ## Your data
 
-- Everything stays on your PC: a SQLite database (`data\f1telemetry.db`), your settings (`data\settings.json`)
-  and recordings (`data\recordings`), in the `data` folder next to the exe. **Settings → Data** shows where
-  and how big it is.
+- Everything stays on your computer: a SQLite database (`f1telemetry.db`), your settings (`settings.json`)
+  and recordings (the `recordings` folder). **Settings → Data** shows where and how big it is.
+  - **Windows:** in the `data` folder next to the exe.
+  - **Mac:** in `~/Library/Application Support/F1 Telemetry Hub`, with `app.log`, the messages a console
+    window would show.
 - Nothing is sent anywhere, apart from the UDP packets you choose to forward to other apps.
 - Exported lap files contain your in-game name, the lap's telemetry and the setup you used. Recordings
   contain everything the game sent, including other drivers' names in online sessions.
@@ -528,12 +594,16 @@ data comes from the game's Motion Ex packet, sent with UDP Format 2024 or newer.
 
 ## Command line
 
-The exe takes a few options, for a shortcut or a script:
+The app takes a few options, for a shortcut or a script:
 
 ```
 F1TelemetryHub.exe [--udp-port 20777] [--http-port 8777] [--data-dir PATH] [--no-browser]
                    [--demo race|quali|tt|weekend] [--demo-format 2025|2026] [--demo-laps N] [--demo-speed X]
 ```
+
+On a Mac, run the program inside the app from Terminal, with the same options:
+`"/Applications/F1 Telemetry Hub.app/Contents/MacOS/F1TelemetryHub"`. Add `--no-window` to run it in the
+terminal without the app's window (stop it with Ctrl+C).
 
 `--udp-port` and `--http-port` apply to that run only (Settings stores permanent changes). `--data-dir`, or
 the `F1TH_DATA_DIR` environment variable, keeps the history somewhere else, for example in a synced folder.

@@ -2,8 +2,9 @@
 
 A local telemetry dashboard and history tracker for **EA SPORTS F1 25**, including the **2026 Season Pack**
 ("F1 26": UDP format 2026). Formats 2025 and 2024 are understood too.
-Everything runs on your PC: the game streams UDP packets to the app, the app records them into a SQLite file,
-and the dashboard opens in your browser at <http://localhost:8777>. Nothing is uploaded anywhere.
+Everything runs on your own Windows PC or Mac: the game streams UDP packets to the app, the app records them
+into a SQLite file, and the dashboard opens in your browser at <http://localhost:8777>. Nothing is uploaded
+anywhere.
 
 Live dashboard, race engineer on the radio, corner-by-corner coach with a debrief, setup advisor, race strategy
 helper, an engineer's workstation that draws your lap as you drive it, friends' laps to race against, a rig
@@ -11,20 +12,25 @@ display for your phone, recordings you can replay, and the history of every lap 
 
 **[Download the latest release](../../releases/latest)** · **[User guide](GUIDE.md)** (also built into the app)
 
-## Quick start (exe)
+## Quick start
 
-1. Download `F1TelemetryHub.exe` from the [latest release](../../releases/latest) into a folder of its own and
-   run it. No installer and nothing else to install. Windows SmartScreen may warn about an unsigned app: click
-   **More info → Run anyway**. A console window shows the dashboard address and your PC's IP addresses; the
-   dashboard opens in your browser.
-   Windows Firewall may ask to allow it the first time: allow **Private networks** if the game runs on a
-   console or another PC.
+1. Download from the [latest release](../../releases/latest). There's no Python or anything else to install.
+   - **Windows:** `F1TelemetryHub.exe`. Put it in a folder of its own and run it. Windows SmartScreen may warn
+     about an unsigned app: click **More info → Run anyway**. A console window shows the dashboard address
+     and your PC's IP addresses; the dashboard opens in your browser. Windows Firewall may ask to allow it the
+     first time: allow **Private networks** if the game runs on a console or another PC.
+   - **Mac** (Apple silicon or Intel): `F1TelemetryHub-mac.dmg`. Open it and drag **F1 Telemetry Hub** to
+     **Applications**. F1 25 doesn't run on Macs, so the game runs on a PlayStation, Xbox or PC and sends to
+     the Mac. The app isn't signed with an Apple developer account, so the first time macOS says it can't
+     verify it: click **Done**, then **System Settings → Privacy & Security → Open Anyway**. The app's
+     window shows the dashboard address and the Mac's IP address for the game; the dashboard opens in your
+     browser.
 2. In the game: **Settings → Telemetry Settings**
    | Setting | Value |
    |---|---|
    | UDP Telemetry | On |
    | UDP Broadcast Mode | Off |
-   | UDP IP Address | `127.0.0.1` (same PC) or this PC's LAN IP (console / other PC) |
+   | UDP IP Address | `127.0.0.1` (same PC) or this computer's LAN IP (console / other PC, and always with a Mac) |
    | UDP Port | `20777` |
    | UDP Send Rate | 20–60 Hz |
    | UDP Format | 2026 with the 2026 Season Pack, otherwise 2025 |
@@ -35,9 +41,9 @@ No game handy? **Settings → Demo mode** (or `F1TelemetryHub.exe --demo race`) 
 qualifying, time trial or career weekend on a fictional "Demo Circuit" through the same pipeline. Demo sessions
 can be deleted in one click.
 
-Keep the console window open while you drive; close it or press Ctrl+C to stop. Starting the exe again while
-it runs just opens its dashboard. The [user guide](GUIDE.md) walks through every page, with recipes and
-troubleshooting.
+Keep the console window (on a Mac, the app's window) open while you drive; close it or press Ctrl+C (Cmd+Q
+on a Mac) to stop. Starting the app again while it runs just opens its dashboard. The [user guide](GUIDE.md)
+walks through every page, with recipes and troubleshooting.
 
 ## What it does
 
@@ -259,8 +265,9 @@ Tracks without a bundled outline (and the Demo Circuit) work as before: the map 
 
 History lives in `data\f1telemetry.db` next to the exe (`--data-dir` or the `F1TH_DATA_DIR` environment
 variable to move it), recordings in `data\recordings`. If the exe's folder can't be written to (Program Files),
-the data goes to `%LOCALAPPDATA%\F1TelemetryHub\data` instead. Copy that folder to back up or move your history.
-**Settings → Data** opens it.
+the data goes to `%LOCALAPPDATA%\F1TelemetryHub\data` instead. The Mac app keeps it in
+`~/Library/Application Support/F1 Telemetry Hub`, with `app.log` (what a console would show). Copy that folder
+to back up or move your history. **Settings → Data** opens it.
 
 ## Command line
 
@@ -269,12 +276,15 @@ F1TelemetryHub.exe [--udp-port 20777] [--http-port 8777] [--data-dir PATH] [--no
                    [--demo race|quali|tt|weekend] [--demo-format 2025|2026] [--demo-laps N] [--demo-speed X]
 ```
 
-`--udp-port`/`--http-port` apply to that run only; the Settings page stores permanent changes. With
+On a Mac the program is `"/Applications/F1 Telemetry Hub.app/Contents/MacOS/F1TelemetryHub"`; `--no-window`
+runs it in the terminal without the app's window. `--udp-port`/`--http-port` apply to that run only; the
+Settings page stores permanent changes. With
 **LAN access** enabled, the dashboard is also reachable from a phone or tablet at `http://<PC IP>:8777`.
 
-## Run from source / build the exe
+## Run from source / build the apps
 
-The app uses only the Python standard library; PyInstaller is needed only to build the exe.
+The app uses only the Python standard library (Tk for the Mac app's window); PyInstaller is needed only to
+build the exe and the Mac app.
 
 ```
 conda env create -f environment.yml
@@ -287,11 +297,17 @@ another interpreter). Close the running app first: Windows can't replace an exe 
 packets to port 20777 for testing against a running app; `--circuit 7` drives a real circuit from the bundled
 outlines instead (stored under that track id, so point it at an app with a separate `--data-dir`), and
 `--session tt --restart-lap 2` does a Time Trial "Restart lap" early in lap 2.
-`tools\make_icon.py` regenerates `assets\app.ico`; `tools\make_circuits.py` rebuilds `f1telemetry\circuits.json`
-from the f1-circuits GeoJSON.
+`build_mac.sh` builds `dist/F1 Telemetry Hub.app` and `dist/F1TelemetryHub-mac.dmg` on a Mac from
+`packaging/macos.spec`. Use the python.org installer's Python for an app that runs on Apple silicon and Intel
+Macs. GitHub Actions (`.github/workflows/build.yml`) builds both on every push and tests them with
+`tools/smoke_test.py`, which starts a build, drives a simulated race into it and checks what it saved. A
+version tag (`v1.2.3`) puts both on a draft release.
+`tools\make_icon.py` regenerates `assets\app.ico` and `assets\app.icns`; `tools\make_circuits.py` rebuilds
+`f1telemetry\circuits.json` from the f1-circuits GeoJSON.
 
 Layout: `f1telemetry/packets.py` (UDP parser), `recorder.py` (live state + lap recording), `storage.py`
-(SQLite), `server.py` (HTTP API + live stream), `app.py` (entry point, settings, UDP listener),
+(SQLite), `server.py` (HTTP API + live stream), `app.py` (entry point, settings, UDP listener), `window.py`
+(the Mac app's window),
 `career.py` (seasons and standings), `circuits.py` (bundled track outlines and lining them up),
 `engineer.py` (race engineer rules), `micro.py` (micro-sector timing and records), `recordings.py`
 (recording the raw packets and replaying them), `coach.py` (corner coach), `advisor.py` (setup advisor),

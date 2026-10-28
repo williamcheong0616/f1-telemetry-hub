@@ -26,7 +26,10 @@ export async function mount(root) {
       h('ol', { class: 'small ink2', style: { paddingLeft: '18px', margin: '0 0 10px' } },
         h('li', {}, 'In the game: Settings › Telemetry Settings'),
         h('li', {}, 'UDP Telemetry ', h('b', {}, 'On'), ', UDP Broadcast Mode ', h('b', {}, 'Off')),
-        h('li', {}, 'UDP IP Address ', h('b', {}, '127.0.0.1'), (s.local_ips || []).length ? ` - or ${s.local_ips.join(' / ')} when the game runs on a console or another PC (also enable "Allow LAN" below for viewing on a tablet)` : ''),
+        s.platform === 'darwin'  // the game can't run on a Mac: it sends to the Mac from a console or a PC
+          ? h('li', {}, 'UDP IP Address ', h('b', {}, (s.local_ips || []).join(' / ') || "this Mac's IP address"),
+            `${(s.local_ips || []).length ? ' (this Mac)' : ' (System Settings › Network)'}, set on the console or PC the game runs on (also enable "Allow LAN" below for viewing on a tablet)`)
+          : h('li', {}, 'UDP IP Address ', h('b', {}, '127.0.0.1'), (s.local_ips || []).length ? ` - or ${s.local_ips.join(' / ')} when the game runs on a console or another PC (also enable "Allow LAN" below for viewing on a tablet)` : ''),
         h('li', {}, 'UDP Port ', h('b', {}, String(s.udp_port)), ', Send Rate ', h('b', {}, '30–60 Hz'), ', UDP Format ', h('b', {}, '2025'), ', Your Telemetry ', h('b', {}, 'Public'))),
       h('details', {}, h('summary', { class: 'small muted', style: { cursor: 'pointer' } }, 'Packets received by type'),
         h('table', { class: 'data', style: { marginTop: '6px' } }, h('tbody', {}, ...PACKET_NAMES.map((n, i) => h('tr', {}, h('td', { class: 'muted' }, `${i} · ${n}`), h('td', { class: 'num' }, fmtNum(s.packet_counts?.[i] || 0)))))))].filter(Boolean));

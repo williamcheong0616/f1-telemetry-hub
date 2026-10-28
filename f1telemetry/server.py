@@ -156,6 +156,7 @@ class Handler(BaseHTTPRequestHandler):
         info["version"] = __version__
         info["data_dir"] = str(self.app.data_dir)
         info["db_size"] = self.app.store.db_size()
+        info["platform"] = sys.platform
         self._json(info)
 
     def _live_snapshot(self) -> dict:

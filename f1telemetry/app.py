@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
+import re
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -45,7 +48,11 @@ def base_dir() -> Path:
 
 def default_data_dir() -> Path:
     """data\\ next to the app, so the whole thing can live in one folder (or on a USB stick). When that folder
-    can't be written to (the exe in Program Files, say), the user's local app data instead."""
+    can't be written to (the exe in Program Files, say), the user's local app data instead. The Mac app always
+    uses Application Support: macOS runs a downloaded app from a read-only copy, and an update replaces the
+    whole app."""
+    if sys.platform == "darwin" and getattr(sys, "frozen", False):
+        return Path.home() / "Library" / "Application Support" / APP_NAME
     here = base_dir() / "data"
     try:
         here.mkdir(parents=True, exist_ok=True)
@@ -121,6 +128,47 @@ class UdpListener:
             self.on_packet(data)
 
 
+class StayAwake:
+    """Keeps the computer from going to sleep while the game is sending: with the game on a console or another
+    PC nobody touches this one, and a laptop would sleep mid-race. The screen can still turn off. It lets go a
+    few minutes after the data stops."""
+    HOLD_S = 300
+
+    def __init__(self):
+        self.until = 0.0
+        self.held = False
+        self.proc = None  # macOS: caffeinate, which holds it for as long as it runs
+
+    def update(self, receiving: bool):
+        """Called every second (from the same thread: on Windows the request belongs to the thread)."""
+        now = time.monotonic()
+        if receiving:
+            self.until = now + self.HOLD_S
+        want = now < self.until
+        if want != self.held:
+            self.held = want
+            self._set(want)
+
+    def release(self):
+        self.until = 0.0
+        self.update(False)
+
+    def _set(self, on: bool):
+        try:
+            if sys.platform == "darwin":
+                if on:  # -i: no idle sleep; -w: ends with this app, even if it crashes
+                    self.proc = subprocess.Popen(["/usr/bin/caffeinate", "-i", "-w", str(os.getpid())])
+                elif self.proc:
+                    self.proc.terminate()
+                    self.proc = None
+            elif os.name == "nt":
+                import ctypes
+                es_continuous, es_system_required = 0x80000000, 0x00000001
+                ctypes.windll.kernel32.SetThreadExecutionState(es_continuous | (es_system_required if on else 0))
+        except (OSError, AttributeError) as e:
+            print(f"[warn] could not {'keep the computer awake' if on else 'let the computer sleep'}: {e!r}")
+
+
 class App:
     def __init__(self, data_dir: Path, overrides: dict | None = None):
         self.data_dir = Path(data_dir)
@@ -144,6 +192,7 @@ class App:
         self.httpd = None
         self.http_port = None
         self.stopping = False
+        self.awake = StayAwake()
 
     # ------------------------------------------------------------------ settings
     def _save_settings(self):
@@ -246,6 +295,8 @@ class App:
         folder.mkdir(parents=True, exist_ok=True)
         if hasattr(os, "startfile"):
             os.startfile(str(folder))  # noqa: S606 - local folder chosen by the app
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(folder)])  # noqa: S603,S607 - Finder, on a folder chosen by the app
 
     # ------------------------------------------------------------------ recordings & replay
     @property
@@ -318,18 +369,29 @@ class App:
                     r.tick()
             except Exception as e:  # noqa: BLE001
                 print(f"[warn] recorder tick failed: {e!r}")
+            last = self.recorder.last_packet_at
+            self.awake.update(bool(last) and time.time() - last < 3)
+        self.awake.release()
 
-    def run(self, open_browser=True):
+    def start(self) -> str:
+        """Starts listening and serving; returns the dashboard's address."""
         self.start_listener()
         self.start_http()
         threading.Thread(target=self._ticker, name="ticker", daemon=True).start()
-        url = f"http://localhost:{self.http_port}/"
+        return f"http://localhost:{self.http_port}/"
+
+    def run(self, open_browser=True, window=False):
+        url = self.start()
         banner(self, url)
         if open_browser and self.settings.get("open_browser", True):
             webbrowser.open(url)
         try:
-            while True:
-                time.sleep(0.5)
+            if window:
+                from .window import StatusWindow
+                StatusWindow(self, url).run()
+            else:
+                while True:
+                    time.sleep(0.5)
         except KeyboardInterrupt:
             print("\nShutting down...")
         finally:
@@ -349,6 +411,8 @@ class App:
 
 
 def local_ips() -> list[str]:
+    if sys.platform == "darwin":
+        return _mac_ips()
     ips = set()
     try:
         for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
@@ -363,6 +427,25 @@ def local_ips() -> list[str]:
     except OSError:
         pass
     return sorted(ip for ip in ips if not ip.startswith("127."))
+
+
+def _mac_ips() -> list[str]:
+    """The Mac's addresses from ifconfig. The usual tricks (looking up the computer's own .local name, connecting
+    a UDP socket) count as using the local network, which macOS asks the user about first."""
+    try:
+        out = subprocess.run(["/sbin/ifconfig"], capture_output=True, text=True, timeout=3).stdout
+    except (OSError, subprocess.SubprocessError):
+        return []
+    ips = set(re.findall(r"^\s*inet (\d+\.\d+\.\d+\.\d+)", out, re.M))
+    return sorted(ip for ip in ips if not ip.startswith(("127.", "169.254.")))
+
+
+def game_ip() -> str:
+    """What goes in the game's UDP IP Address: 127.0.0.1 when the game runs on this computer, which it can't on
+    a Mac, so there it's the Mac's address on the network the console or PC is on."""
+    if sys.platform != "darwin":
+        return "127.0.0.1"
+    return " or ".join(local_ips()[:2]) or "this Mac's IP address (System Settings > Network)"
 
 
 def banner(app: App, url: str):
@@ -381,7 +464,7 @@ def banner(app: App, url: str):
     print(f"  Data      : {app.data_dir}")
     print("-" * 64)
     print("  In the game: Settings > Telemetry Settings")
-    print("    UDP Telemetry: On | UDP Broadcast Mode: Off | UDP IP: 127.0.0.1")
+    print(f"    UDP Telemetry: On | UDP Broadcast Mode: Off | UDP IP: {game_ip()}")
     print(f"    UDP Port: {l.port if l else app.settings['udp_port']} | UDP Send Rate: 20-60Hz")
     print("    UDP Format: 2025 (2026 with the 2026 Season Pack) | Your Telemetry: Public")
     print(f"  Guide     : {url}#/guide")
@@ -411,23 +494,47 @@ def running_instance(data_dir: Path, port: int) -> str | None:
     return url if same else None
 
 
+def use_window(argv=None) -> bool:
+    """The app's own window instead of a console: the Mac app has no console, so there it's the default."""
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if "--no-window" in argv:
+        return False
+    want = "--window" in argv or (sys.platform == "darwin" and getattr(sys, "frozen", False))
+    if want and importlib.util.find_spec("tkinter") is None:
+        print("The app's window needs Tk, which this build doesn't have: running in this console instead.")
+        return False
+    return want
+
+
+def log_to(path: Path):
+    """With the app's window there's no console: what it would show goes to app.log in the data folder."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    sys.stdout = sys.stderr = open(path, "w", encoding="utf-8", buffering=1)  # noqa: SIM115 - for the app's life
+
+
 def main(argv=None):
-    """Runs the app. From the exe, a failure stays on screen instead of the window closing on it."""
+    """Runs the app. From the exe, a failure stays on screen instead of the window closing on it; with the app's
+    window, the window shows it."""
+    window = use_window(argv)
     set_title(f"{APP_NAME} - keep this window open while you drive")
     try:
-        _main(argv)
+        _main(argv, window)
     except KeyboardInterrupt:
         pass
     except (Exception, SystemExit) as e:  # noqa: BLE001
         if isinstance(e, SystemExit) and e.code in (0, None):
             raise
-        if not getattr(sys, "frozen", False):
+        if not (getattr(sys, "frozen", False) or window):
             raise
         print()
         if isinstance(e, SystemExit):
             print(f"  {e.code}")
         else:
             traceback.print_exc()
+        if window:
+            from .window import show_error
+            show_error(str(e.code) if isinstance(e, SystemExit) else f"{type(e).__name__}: {e}")
+            sys.exit(1)
         print("\n  F1 Telemetry Hub could not start. The guide's Troubleshooting section covers the usual causes.")
         try:
             input("  Press Enter to close this window.")
@@ -436,13 +543,19 @@ def main(argv=None):
         sys.exit(1)
 
 
-def _main(argv=None):
+def _main(argv=None, window=False):
     ap = argparse.ArgumentParser(description=f"{APP_NAME} - local F1 25/26 telemetry recorder")
     ap.add_argument("--data-dir", default=os.environ.get("F1TH_DATA_DIR"),
-                    help="folder for the database and settings (default: ./data next to the app)")
+                    help="folder for the database and settings (default: ./data next to the app; the Mac "
+                         "app's is ~/Library/Application Support/F1 Telemetry Hub)")
     ap.add_argument("--udp-port", type=int, help="UDP port the game sends telemetry to (default 20777)")
     ap.add_argument("--http-port", type=int, help="port for the dashboard (default 8777)")
     ap.add_argument("--no-browser", action="store_true", help="don't open the dashboard automatically")
+    ap.add_argument("--window", action="store_true",
+                    help="show the app's own window instead of using this console (the Mac app's default; "
+                         "needs Tk, which the Windows exe leaves out)")
+    ap.add_argument("--no-window", action="store_true",
+                    help="no app window, even in the Mac app: run in this terminal and stop with Ctrl+C")
     ap.add_argument("--demo", choices=["race", "quali", "tt", "weekend"],
                     help="start the built-in demo session (weekend = career qualifying + race)")
     ap.add_argument("--demo-speed", type=float, default=1.0)
@@ -470,10 +583,12 @@ def _main(argv=None):
                 webbrowser.open(url)
             time.sleep(3)
             return
+    if window:
+        log_to(data_dir / "app.log")
     app = App(data_dir, overrides)
     if a.demo:
         threading.Timer(1.0, app.start_demo, args=(a.demo, a.demo_laps, a.demo_speed, a.demo_format)).start()
-    app.run(open_browser=not a.no_browser)
+    app.run(open_browser=not a.no_browser, window=window)
 
 
 if __name__ == "__main__":
